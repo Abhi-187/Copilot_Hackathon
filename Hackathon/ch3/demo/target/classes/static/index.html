@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Item Management</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f9;
+        color: #333;
+      }
+      .container {
+        width: 80%;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+        color: #444;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        background-color: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      table,
+      th,
+      td {
+        border: 1px solid #ddd;
+      }
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+      tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+      form {
+        background-color: #fff;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-top: 20px;
+      }
+      form input,
+      form button {
+        margin: 5px 0;
+        padding: 10px;
+        width: calc(100% - 22px);
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      form button {
+        background-color: #5cb85c;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+      }
+      form button:hover {
+        background-color: #4cae4c;
+      }
+      .actions button {
+        margin-right: 5px;
+        padding: 5px 10px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .actions .edit {
+        background-color: #5bc0de;
+        color: #fff;
+      }
+      .actions .edit:hover {
+        background-color: #31b0d5;
+      }
+      .actions .delete {
+        background-color: #d9534f;
+        color: #fff;
+      }
+      .actions .delete:hover {
+        background-color: #c9302c;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Item Management</h1>
+      <table id="itemTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <h2>Add/Edit Item</h2>
+      <form id="itemForm">
+        <input type="hidden" id="itemId" />
+        <label for="name">Name:</label>
+        <input type="text" id="name" required /><br /><br />
+        <label for="description">Description:</label>
+        <input type="text" id="description" required /><br /><br />
+        <label for="price">Price:</label>
+        <input type="number" id="price" required /><br /><br />
+        <button type="submit">Save</button>
+      </form>
+    </div>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        fetchItems();
+
+        document
+          .getElementById("itemForm")
+          .addEventListener("submit", function (event) {
+            event.preventDefault();
+            const id = document.getElementById("itemId").value;
+            const name = document.getElementById("name").value;
+            const description = document.getElementById("description").value;
+            const price = document.getElementById("price").value;
+
+            console.log("Form submitted:", { id, name, description, price });
+
+            if (id) {
+              updateItem(id, { name, description, price });
+            } else {
+              createItem({ name, description, price });
+            }
+          });
+      });
+
+      function fetchItems() {
+        fetch("/api/items")
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Network response was not ok");
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log("Fetched items:", data);
+            const tbody = document
+              .getElementById("itemTable")
+              .querySelector("tbody");
+            tbody.innerHTML = "";
+            data.forEach((item) => {
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.description}</td>
+                    <td>${item.price}</td>
+                    <td class="actions">
+                        <button class="edit" onclick="editItem(${item.id})">Edit</button>
+                        <button class="delete" onclick="deleteItem(${item.id})">Delete</button>
+                    </td>
+                `;
+              tbody.appendChild(row);
+            });
+          })
+          .catch((error) => console.error("Error fetching items:", error));
+      }
+
+      function createItem(item) {
+        // Remove ID if present
+        delete item.id;
+
+        fetch("/api/items", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(item),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              return response.text().then((text) => {
+                throw new Error(text || "Network response was not ok");
+              });
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log("Item created:", data);
+            fetchItems();
+            document.getElementById("itemForm").reset();
+          })
+          .catch((error) => console.error("Error creating item:", error));
+      }
+
+      function updateItem(id, item) {
+        fetch(`/api/items/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(item),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("Item updated:", data);
+            fetchItems();
+            document.getElementById("itemForm").reset();
+          })
+          .catch((error) => console.error("Error updating item:", error));
+      }
+
+      function deleteItem(id) {
+        fetch(`/api/items/${id}`, {
+          method: "DELETE",
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Network response was not ok");
+            }
+            console.log("Item deleted:", id);
+            fetchItems();
+          })
+          .catch((error) => console.error("Error deleting item:", error));
+      }
+
+      function editItem(id) {
+        fetch(`/api/items/${id}`)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Network response was not ok");
+            }
+            return response.json();
+          })
+          .then((item) => {
+            console.log("Editing item:", item);
+            document.getElementById("itemId").value = item.id;
+            document.getElementById("name").value = item.name;
+            document.getElementById("description").value = item.description;
+            document.getElementById("price").value = item.price;
+          })
+          .catch((error) => console.error("Error fetching item:", error));
+      }
+    </script>
+  </body>
+</html>
